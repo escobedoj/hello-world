@@ -94,6 +94,8 @@
 			max-width: 400px;
 			font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
 		}
+		
+
 	</style>
 </head>
 <body>
@@ -145,6 +147,7 @@
 		
 		var featureSelected = false;
 		var featureSelectedID;
+        var movePointIndex = 0;
 		
 		map.addControl(new MapboxGeocoder({
 			accessToken: mapboxgl.accessToken
@@ -186,7 +189,9 @@
 			swatch.addEventListener('click', function() {
 				//map.setPaintProperty(layer.value, 'fill-color', color);
 				if (featureSelected === true){
-					featureSelected = false;
+					geojson.features[movePointIndex].properties.color = color;
+                    map.getSource('single-point').setData(geojson);
+                    featureSelected = false;
 				}else{
 					$('#map canvas').css('cursor', 'crosshair');
 					
@@ -238,32 +243,20 @@
 			});
 			map.on('mousedown', mouseDown, true);
 		});
-		
+        
 		/*map.on('click', function (e) {
 
-			var features = map.queryRenderedFeatures(e.point, { layers: ['point'] });
-			
-			if (!features.length) {
-				featureSelected = false;
-				return;
-			}
-			
-			var feature = features[0];
-		    var popup = new mapboxgl.Popup()
-				.setLngLat(feature.geometry.coordinates)
-				.setHTML(feature.properties.color)
-				.addTo(map);
-				
-			featureSelected = true;
-			featureSelectedID = feature.properties.id;
+
 		});*/
 
-		var movePointIndex = 0;
+		
 		function mouseDown(e) {
-			if (!isCursorOverPoint) return;
+			featureSelected = false;
+            if (!isCursorOverPoint) return;
 			var features = map.queryRenderedFeatures(e.point, { layers: ['point'] });
 			var feature = features[0];
-			featureSelectedID = feature.properties.id;
+			featureSelected = true;
+            featureSelectedID = feature.properties.id;
 
 			geojson.features.forEach(function(feature, i){
 				if (feature.properties.id === featureSelectedID)
