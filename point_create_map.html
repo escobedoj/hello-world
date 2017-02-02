@@ -94,7 +94,6 @@
 			max-width: 400px;
 			font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
 		}
-
 	</style>
 </head>
 <body>
@@ -129,13 +128,16 @@
 
 	<script>
 		mapboxgl.accessToken = 'pk.eyJ1IjoiZXNjb2JlZG9qIiwiYSI6ImhVNXlEMjgifQ.87y--2zwF0886vUFzuWxWg';
+		var isDragging;
+		var isCursorOverPoint;
+
 		var map = new mapboxgl.Map({
 			container: 'map',
 			center: [-98.5795,39.8282],
 			zoom: 3,
 			style: 'mapbox://styles/mapbox/light-v9'
 		});
-		
+		var canvas = map.getCanvasContainer();
 		var geojson = {
 			"type": "FeatureCollection",
 			"features": []
@@ -149,11 +151,11 @@
 		}));
 		
 		map.addControl(new mapboxgl.NavigationControl(),'top-left');
+		
 		var layerList = document.getElementById('menu');
 		var inputs = layerList.getElementsByTagName('input');
 
 		function switchLayer(layer) {
-			//console.log(layer.target.id);
 			var layerId = layer.target.id;
 			map.setStyle('mapbox://styles/mapbox/' + layerId + '-v9');
 		}
@@ -165,7 +167,6 @@
 		
 		//point menu
 		var swatches = document.getElementById('swatches');
-		//var featurelayer = document.getElementById('featurelayer');
 		var colors = [
 			'#ffffcc',
 			'#a1dab4',
@@ -185,26 +186,11 @@
 			swatch.addEventListener('click', function() {
 				//map.setPaintProperty(layer.value, 'fill-color', color);
 				if (featureSelected === true){
-					alert(featureSelectedID);
-					
 					featureSelected = false;
 				}else{
 					$('#map canvas').css('cursor', 'crosshair');
 					
 					map.once('click', function(e) {
-
-						//alert(e.lngLat.lng);
-						/*var geojson = {
-							"type": "FeatureCollection",
-							"features": [{
-								"type": "Feature",
-								"geometry": {
-									"type": "Point",
-									"coordinates": [e.lngLat.lng, e.lngLat.lat]
-								}
-							}]						
-						}*/	
-						
 						var newpoint = {
 							"type": "Feature",
 							"geometry": {
@@ -231,8 +217,30 @@
 			swatches.appendChild(swatch);
 		});
 		
-		map.on('click', function (e) {
-			
+		
+		map.on('load', function() {
+			map.on('mousemove', function(e) {
+				var features = map.queryRenderedFeatures(e.point, { layers: ['point'] });
+
+				// Change point and cursor style as a UI indicator
+				// and set a flag to enable other mouse events.
+				if (features.length) {
+					//map.setPaintProperty('single-point', 'circle-color', '#3bb2d0');
+					canvas.style.cursor = 'move';
+					isCursorOverPoint = true;
+					map.dragPan.disable();
+				} else {
+					//map.setPaintProperty('single-point', 'circle-color', '#3887be');
+					canvas.style.cursor = '';
+					isCursorOverPoint = false;
+					map.dragPan.enable();
+				}
+			});
+			map.on('mousedown', mouseDown, true);
+		});
+		
+		/*map.on('click', function (e) {
+
 			var features = map.queryRenderedFeatures(e.point, { layers: ['point'] });
 			
 			if (!features.length) {
@@ -248,59 +256,56 @@
 				
 			featureSelected = true;
 			featureSelectedID = feature.properties.id;
-		});
-		
-		//map.on('mousemove', function (e) {
-		//	var features = map.queryRenderedFeatures(e.point, { layers: ['places'] });
-		//	map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
-		//});
-				
-		map.on('load', function() {
-			//addDataLayer();
-			/*map.addSource('single-point', {
-				"type": "geojson",
-				"data": {
-					"type": "FeatureCollection",
-					"features": []
-				}
+		});*/
+
+		var movePointIndex = 0;
+		function mouseDown(e) {
+			if (!isCursorOverPoint) return;
+			var features = map.queryRenderedFeatures(e.point, { layers: ['point'] });
+			var feature = features[0];
+			featureSelectedID = feature.properties.id;
+
+			geojson.features.forEach(function(feature, i){
+				if (feature.properties.id === featureSelectedID)
+				{
+					movePointIndex = i;
+				};
 			});
 
-			map.addLayer({
-				"id": "point",
-				"source": "single-point",
-				"type": "circle",
-				"paint": {
-					"circle-radius": 6,
-					"circle-color": {
-						'property': 'color',
-						'type': 'categorical',
-						'stops': [
-							['#ffffcc', '#ffffcc'],
-							['#a1dab4', '#a1dab4'],
-							['#41b6c4', '#41b6c4'],
-							['#2c7fb8', '#2c7fb8'],
-							['#253494', '#253494'],
-							['#fed976', '#fed976'],
-							['#feb24c', '#feb24c'],
-							['#fd8d3c', '#fd8d3c'],
-							['#f03b20', '#f03b20'],
-							['#bd0026', '#bd0026']
-						]
-					}
-				}
-			});*/
+			isDragging = true;
 
-			// Listen for the `geocoder.input` event that is triggered when a user
-			// makes a selection and add a symbol that matches the result.
-			//geocoder.on('result', function(ev) {
-			//	map.getSource('single-point').setData(ev.result.geometry);
-			//});
-		});
+			// Set a cursor indicator
+			canvas.style.cursor = 'grab';
+			
+			// Mouse events
+			map.on('mousemove', onMove);
+			map.once('mouseup', onUp);
+		};	
+		
+		function onMove(e) {
+
+			if (!isDragging) return;
+			var coords = e.lngLat;
+
+			canvas.style.cursor = 'grabbing';
+
+			geojson.features[movePointIndex].geometry.coordinates = [coords.lng, coords.lat];
+			map.getSource('single-point').setData(geojson);
+		};
+		
+		function onUp(e) {
+			if (!isDragging) return;
+			var coords = e.lngLat;
+
+			canvas.style.cursor = '';
+			isDragging = false;
+
+			// Unbind mouse events
+			map.off('mousemove', onMove);
+		};
 		
 		map.on('style.load', function () {
 		  // Triggered when `setStyle` is called.
-		  //alert(geojson);
-		  //if (geojson) addDataLayer();
 		  addDataLayer();
 		  map.getSource('single-point').setData(geojson);
 		});
