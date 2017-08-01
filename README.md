@@ -7,4 +7,4 @@ Added Slack Notifications to this repository
 
 test slack connection
 
-test git pull #2
+test git pull #3
