@@ -6,3 +6,5 @@ adding more text <br/>
 Added Slack Notifications to this repository
 
 test slack connection
+
+test git pull #1
